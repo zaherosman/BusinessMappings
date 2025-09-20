@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerenciador de Mapeamentos de Negócio</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 90%; /* Ocupa 90% da largura da tela */
+            margin: 40px auto;
+            padding: 20px;
+}
+
+        h2, h3 {
+            color: #1f4e79;
+            margin-bottom: 20px;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .header-actions h3 {
+            margin: 0;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        /* Estilo para Statements */
+        .statement-card {
+            border: 1px solid #e0e0e0;
+            cursor: move; /* Indica que o card pode ser movido */
+        }
+        
+        .statement-card.sortable-ghost {
+            opacity: 0.4;
+            background-color: #f2f2f2;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            cursor: grab;
+        }
+        
+        .card-header:active {
+            cursor: grabbing;
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #1f4e79;
+        }
+
+        .card-actions i {
+            cursor: pointer;
+            color: #666;
+            margin-left: 10px;
+            font-size: 1.1em;
+            transition: color 0.2s;
+        }
+
+        .card-actions i:hover {
+            color: #1f4e79;
+        }
+
+        /* Estilo para grupos de condições (OR) */
+        .group-container {
+            background: #f9f9f9;
+            border: 1px dashed #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .negate-group-checkbox {
+            margin-right: 5px;
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .condition.selected {
+            border: 1px solid #c62828; /* Vermelho vibrante */
+            box-shadow: 0 0 5px rgba(198, 40, 40, 0.5);
+        }
+
+        .group-title {
+            font-weight: bold;
+        }
+
+        /* Estilo para cada condição (AND) */
+        .condition {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+
+        .condition > * {
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        
+        /* Campos de input e select */
+        input[type="file"], select, input[type="text"] {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        
+        input[type="file"] {
+            padding: 6px;
+        }
+
+        input[type="text"]:focus, select:focus {
+            border-color: #1f4e79;
+            outline: none;
+        }
+
+        button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background-color: #1f4e79;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-danger {
+            background-color: #c62828;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        #output {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+            max-height: 400px;
+            overflow: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Upload XLSX or CSV</h2>
+    <input type="file" id="dataFile" accept=".xlsx, .xls, .csv">
+
+    <div id="configSection2" style="display:none;" class="card">
+        <h3>Business Mapping Information</h3>
+        <label>Dimension Name *: </label>
+        <input type="text" id="jsonName" placeholder="Ex: Environment"><br><br>
+
+        <label>Default Value *: </label>
+        <input type="text" id="jsonDefault" placeholder="Ex: (not set)"><br><br>
+
+        <div class="header-actions">
+        <h3>Statements</h3>
+        </div>
+        
+        <div id="statementsContainer"></div>
+        
+        <hr style="margin: 20px 0;">
+        <H3>valueExpression:</h3>
+        <select id="valueCol2"></select><br><br>
+        
+        <div style="text-align: right;">
+            <button class="btn-secondary" onclick="resetPage()">Clear all</button>
+            <button class="btn-primary" onclick="generateJSON2()">Generate JSON</button>
+        </div>
+    </div>
+
+    <h3>Result</h3>
+    <pre id="output"></pre>
+    <div style="text-align: right; margin-top: 10px;">
+        <button class="btn-primary" id="downloadBtn" style="display:none;">Download JSON</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="BusinessMappings.js"></script>
+
+</body>
+</html>
