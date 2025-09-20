@@ -88,12 +88,11 @@ function addStatement() {
     
     statementDiv.innerHTML = `
         <div class="card-header handle">
-            <span class="card-title">${statementName}</span>
             <input type="text" class="card-title-input" value="${statementName}" style="display:none;">
         </div>
         <div class="groups-container"></div>
         <button class="btn-secondary btn-small" style="margin-top: 10px;" onclick="addGroup(this)">
-            <i class="fas fa-plus"></i> Add Group (OR)
+            <i class="fas fa-plus"></i> Add Operator (AND)
         </button>
     `;
     container.appendChild(statementDiv);
@@ -123,12 +122,12 @@ function addGroup(buttonElement) {
     
     groupDiv.innerHTML = `
         <div class="group-header">
-            <label><input type="checkbox" class="negate-group-checkbox"> Negate this group</label>
+            <label>Statement</label>
             <i class="fas fa-trash-alt" onclick="removeGroup(this)"></i>
         </div>
         <div class="conditions-container"></div>
         <button class="btn-secondary btn-small" onclick="addCondition(this)">
-            <i class="fas fa-plus"></i> Add Condition (AND)
+            <i class="fas fa-plus"></i> Add Operator (OR)
         </button>
     `;
     groupsContainer.appendChild(groupDiv);
@@ -288,14 +287,14 @@ function generateJSON2() {
                     case '<=': expr = `${cond.toolCol} <= ${row[cond.fileCol]}`; break;
                 }
                 return expr;
-            }).join(' && ');
+            }).join(' || ');
 
             if (group.isNegated) {
                 groupExpression = `!(${groupExpression})`;
             }
             
             if (groups.length > 1 && groupIndex > 0) {
-                matchExpression += ' || ';
+                matchExpression += ' && ';
             }
             
             if (groups.length > 1 || group.isNegated) {
