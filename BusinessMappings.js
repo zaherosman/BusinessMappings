@@ -1,92 +1,1372 @@
+function switchTab(btn) {
+    const tab = btn.dataset.tab;
+    
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
+    btn.classList.add('active');
+    
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    
+    const section = document.getElementById(tab + 'Section');
+    if (section) {
+        section.classList.add('active');
+    } else {
+        console.error('Seção não encontrada para o tab:', tab);
+    }
+}
+
 let excelData = [];
 let columns = [];
 
-// Colunas fixas DIMENSION para a ferramenta
+const snippetsByProvider = {
+  MultiCloud: [
+    {
+      name: "Shortens Azure Resource ID's to Associated Resource Names",
+      data: {
+        name: "Filter out Unutilized Reservation Costs",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "No",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['date'] FIND /^\\d{4}\\-\\d{2}\\-01.*/ && DIMENSION['transaction_type'] == 'Recurring Charge' && DIMENSION['reservation_identifier']!='(not set)' && DIMENSION['vendor'] == 'Amazon'",
+
+            valueExpression:
+              "'Unutilized Reservation and Savings Plan Amounts'",
+          },
+        ],
+      },
+    },
+    {
+      name: "Dimension to Simplify Storage Classes (AWS and Azure)",
+      data: {
+        name: "Storage Class",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Premium ZRS Provisioned' && DIMENSION['usage_type'] CONTAINS 'Premium Files'",
+            valueExpression: "'Azure Premium Files - ZRS Provisioned'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Premium LRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Block Blob'",
+            valueExpression: "'Azure Block Blob - Premium LRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] STARTS_WITH 'Premium LRS Provisioned'",
+            valueExpression: "'Azure Premium Files - Provisioned LRS '",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'LRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Tables'",
+            valueExpression: "'Azure Tables LRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Archive LRS Data Stored'",
+            valueExpression: "'Azure Archive LRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Cool ZRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Block Blob'",
+            valueExpression: "'Azure Block Blob - Cool ZRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Cool LRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Block Blob'",
+            valueExpression: "'Azure Block Blob - Cool LRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Hot LRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Block Blob'",
+            valueExpression: "'Azure Block Blob - Hot LRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Hot LRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Data Lake'",
+            valueExpression: "'Azure Data Lake Hot LRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'GRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Tables'",
+            valueExpression: "'Azure Table GRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Hot GRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Data Lake'",
+            valueExpression: "'Azure Data Lake - Hot GRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Hot GRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Block Blob'",
+            valueExpression: "'Azure Block Blob - Hot GRS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Hot RA-GRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Block Blob'",
+            valueExpression: "'Azure Block Blob - Hot RA-GRS '",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] == 'Hot RA-GRS Data Stored' && DIMENSION['usage_type'] CONTAINS 'Data Lake'",
+            valueExpression: "'Azure Data Lake Hot RA-GRS '",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_type'] CONTAINS 'Page Blob' && DIMENSION['enhanced_service_name'] == 'Azure Storage'",
+            valueExpression: "'Azure Page Blob Storage'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] CONTAINS 'Data Transfer' && DIMENSION['enhanced_service_name'] == 'Azure Storage'",
+            valueExpression: "'Azure Storage Data Transfer'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['operation'] CONTAINS 'Operations' && DIMENSION['enhanced_service_name'] == 'Azure Storage'",
+            valueExpression: "'Azure Storage Operations'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['enhanced_service_name'] == 'Azure Storage' && DIMENSION['usage_family'] == 'Storage'",
+            valueExpression: "'Other Azure Storage Fees'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_type'] STARTS_WITH 'TimedStorage-GDA' || DIMENSION['operation'] STARTS_WITH 'DeepArchive'",
+            valueExpression: "'S3 Glacier Deep Archive'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_type'] STARTS_WITH 'TimedStorage-GIR'",
+            valueExpression: "'S3 Glacier Instant Retrieval '",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_type'] ENDS_WITH 'TimedStorage-GlacierByteHrs' || DIMENSION['usage_type'] == 'TimedStorage-GlacierStaging' || DIMENSION['operation'] == 'GlacierS3ObjectOverhead'",
+            valueExpression: "'S3 Glacier'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_type'] CONTAINS '-INT-FA-ByteHrs'",
+            valueExpression: "'S3 Intelligent-Tiering Frequent Access'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_type'] CONTAINS 'INT-IA-ByteHrs'",
+            valueExpression: "'S3 Intelligent-Tiering Infrequent Access'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_type'] CONTAINS 'TimedStorage-SIA'",
+            valueExpression: "'S3 Standard-Infrequent Access'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_type'] ENDS_WITH 'TimedStorage-ByteHrs' && DIMENSION['operation'] == 'StandardStorage'",
+            valueExpression: "'S3 Standard'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['usage_family'] == 'Storage' && DIMENSION['enhanced_service_name'] == 'AWS S3'",
+            valueExpression: "'S3 Other Storage Fees'",
+          },
+        ],
+      },
+    },
+  ],
+  AWS: [
+    {
+      name: "Reproduce native AWS Product Category",
+      data: {
+        name: "AWS Service",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression: "DIMENSION['vendor'] != 'Amazon'",
+            valueExpression: "'Not Amazon'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['usage_type'] == 'Tax'",
+            valueExpression: "'Tax'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS EC2' && DIMENSION['usage_family'] == 'Instance Usage'",
+            valueExpression: "'EC2-Instances'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['service_name'] == 'Amazon Elastic Compute Cloud'",
+            valueExpression: "'EC2-Other'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS Marketplace'",
+            valueExpression: "DIMENSION['service_name']",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS S3' && DIMENSION['service_name'] == 'Amazon Glacier'",
+            valueExpression: "'Glacier'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS S3' && DIMENSION['service_name'] != 'Amazon Glacier'",
+            valueExpression: "'S3'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS Savings Plan'",
+            valueExpression: "'Savings Plans for  Compute usage'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS RDS'",
+            valueExpression: "'Relational Database Service'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS EMR'",
+            valueExpression: "'Elastic MapReduce'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS Documentdb (with Mongodb Compatibility)'",
+            valueExpression: "'DocumentDB '",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['service_name'] == 'DynamoDB Accelerator (DAX)'",
+            valueExpression: "'DynamoDB Accelerator '",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['service_name'] == 'AmazonCloudWatch'",
+            valueExpression: "'CloudWatch'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['service_name'] == 'CloudWatch Events'",
+            valueExpression: "'CloudWatch Events'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS ECR'",
+            valueExpression: "'EC2 Container Registry '",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS SWF'",
+            valueExpression: "'Simple Workflow Service'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS ECS'",
+            valueExpression: "'Elastic Container Service'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['service_name'] == 'AWS Database Migration Service'",
+            valueExpression: "'DMS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS SES'",
+            valueExpression: "'SES'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS SNS'",
+            valueExpression: "'SNS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS SQS'",
+            valueExpression: "'SQS'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS Support'",
+            valueExpression: "'Support '",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] == 'AWS VPC'",
+            valueExpression: "'VPC'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['service_name'] STARTS_WITH 'Amazon '",
+            valueExpression:
+              "DIMENSION['service_name'] REPLACE /^Amazon (.)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] STARTS_WITH 'Amazon '",
+            valueExpression:
+              "DIMENSION['enhanced_service_name'] REPLACE /^Amazon (.)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['service_name'] STARTS_WITH 'AWS '",
+            valueExpression: "DIMENSION['service_name'] REPLACE /^AWS (.)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'Amazon' && DIMENSION['enhanced_service_name'] STARTS_WITH 'AWS '",
+            valueExpression:
+              "DIMENSION['enhanced_service_name'] REPLACE /^AWS (.)/$1/",
+          },
+          {
+            matchExpression: "DIMENSION['vendor'] == 'Amazon'",
+            valueExpression: "DIMENSION['service_name']",
+          },
+        ],
+      },
+    },
+    {
+      name: "Reproduce Cost Explorer Defined AWS Service",
+      data: {
+        name: "AWS Service",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['enhanced_service_name'] == 'AWS Administrative' && (DIMENSION['usage_family'] == 'Tax' || DIMENSION['usage_family'] == 'Marketplace Services')",
+            valueExpression: "'Tax'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['service_name'] CONTAINS 'Amazon Virtual Private Cloud'",
+            valueExpression: "'VPC'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['service_name'] == 'Amazon Elastic Compute Cloud' && (DIMENSION['usage_family'] == 'Instance Usage' || DIMENSION['usage_family'] == 'IP Address' || DIMENSION['usage_family'] == 'IO')",
+            valueExpression: "'EC2 Instances'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['service_name'] == 'Amazon Elastic Compute Cloud' && (DIMENSION['usage_family'] != 'Instance Usage' || DIMENSION['usage_family'] != 'IP Address' || DIMENSION['usage_family'] != 'IO')",
+            valueExpression: "'EC2 Other'",
+          },
+          {
+            matchExpression:
+              "(DIMENSION['enhanced_service_name'] == 'AWS Opensearch Service' || DIMENSION['enhanced_service_name'] == 'AWS Elasticsearch Service')",
+            valueExpression: "'OpenSearch Service'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['service_name'] == 'Amazon Elastic Container Service'",
+            valueExpression: "'Elastic Container Service'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['service_name'] == 'Amazon EC2 Container Registry (ECR)'",
+            valueExpression: "'EC2 Container Registry (ECR)'",
+          },
+          {
+            matchExpression: "EXISTS DIMENSION['enhanced_service_name']",
+            valueExpression: "DIMENSION['enhanced_service_name']",
+          },
+        ],
+      },
+    },
+  ],
+  Azure: [
+    {
+      name: "Shorten Azure Resource IDs by resource type",
+      data: {
+        name: "Resource Name",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "not set",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/virtualmachines/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/virtualmachines\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/disks/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/disks\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/sqlpools/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/sqlpools\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/storageaccounts/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/storageaccounts\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/vaults/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/vaults\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/service/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/service\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/workspaces/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/workspaces\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/serverfarms/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/serverfarms\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/expressrouteports/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/expressrouteports\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/namespaces/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/namespaces\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/databases/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/databases\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/virtualnetworkgateways/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/virtualnetworkgateways\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/factories/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/factories\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/expressroutecircuits/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/expressroutecircuits\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/loadbalancers/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/loadbalancers\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/applicationgateways/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/applicationgateways\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/managedinstances/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/managedinstances\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/ddosprotectionplans/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/ddosprotectionplans\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/azurefirewalls/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/azurefirewalls\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/publicipaddresses/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/publicipaddresses\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/domainnames/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/domainnames\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/streamingjobs/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/streamingjobs\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/bastionhosts/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/bastionhosts\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/configurationstores/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/configurationstores\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/privateendpoints/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/privateendpoints\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/accounts/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/accounts\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/redis/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/redis\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/databaseaccounts/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/databaseaccounts\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/profiles/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/profiles\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/registries/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/registries\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/publicipprefixes/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/publicipprefixes\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/automationaccounts/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/automationaccounts\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/servers/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/servers\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/commitmentplans/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/commitmentplans\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/scheduledqueryrules/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/scheduledqueryrules\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/snapshots/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/snapshots\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/containergroups/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/containergroups\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/virtualmachinescalesets/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/virtualmachinescalesets\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/privatednszones/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/privatednszones\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/natgateways/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/natgateways\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/components/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/components\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/images/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/images\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/frontdoorwebapplicationfirewallpolicies/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/frontdoorwebapplicationfirewallpolicies\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/frontdoors/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/frontdoors\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/sites/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/sites\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/workflows/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/workflows\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/metricalerts/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/metricalerts\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/versions/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/versions\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/queueservices/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/queueservices\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/extensiontopics/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/extensiontopics\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/slots/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/slots\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/dnszones/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/dnszones\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/networksecuritygroups/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/networksecuritygroups\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/connections/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/connections\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/clusters/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/clusters\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/fileservices/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/fileservices\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/blobservices/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/blobservices\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/tableservices/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/tableservices\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/actiongroups/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/actiongroups\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/networkwatchers/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/networkwatchers\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/asapframe/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/asapframe\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/storagesyncservices/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/storagesyncservices\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/signalr/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/signalr\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/b2cdirectories/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/b2cdirectories\\/(.+)/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS '/hostingenvironments/'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.+\\/hostingenvironments\\/(.+)/$1/",
+          },
+        ],
+      },
+    },
+    {
+      name: "Shorten Azure Resources IDs based on format (compact)",
+      data: {
+        name: "Resource Name",
+        defaultValue: "Unavailable",
+        statements: [
+          {
+            matchExpression: "EXISTS DIMENSION['resource_identifier']",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /.*\\/(.*)$/$1/",
+          },
+        ],
+      },
+    },
+    {
+      name: "Dimension to display an Azure Reservation Order Name - RegEx",
+      data: {
+        name: "Reservation Order Name",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'reservationordername'",
+            valueExpression:
+              'DIMENSION[\'item_description\'] REPLACE /.*ReservationOrderName":"(.*)"}/$1/',
+          },
+        ],
+      },
+    },
+    {
+      name: "Dimension to isolate the Azure Reservation Order ID - RegE",
+      data: {
+        name: "Reservation Order ID",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'ReservationOrderId'",
+            valueExpression:
+              'DIMENSION[\'item_description\'] REPLACE /.*ReservationOrderId": *"([^"]*).*/$1/',
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS 'reservationorders'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /.*reservationorders\\/([^\\/]*).*/$1/",
+          },
+          {
+            matchExpression:
+              "DIMENSION['resource_identifier'] CONTAINS 'savingsplanorders'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /.*savingsplanorders\\/([^\\/]*).*/$1/",
+          },
+          {
+            matchExpression: "DIMENSION['lease_type'] == 'Savings Plan'",
+            valueExpression: "DIMENSION['reservation_identifier']",
+          },
+        ],
+      },
+    },
+    {
+      name: "Azure Meter Category",
+      data: {
+        name: "MeterCategory",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'azure' && EXISTS DIMENSION['usage_type']",
+            valueExpression: "DIMENSION['usage_type'] REPLACE /^([^:]*).*/$1/",
+          },
+        ],
+      },
+    },
+    {
+      name: "Azure Meter SubCategory",
+      data: {
+        name: "MeterSubCategory",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['vendor'] == 'azure' && DIMENSION['usage_type'] CONTAINS '::'",
+            valueExpression: "DIMENSION['usage_type'] REPLACE /.*::(.*)$/$1/",
+          },
+        ],
+      },
+    },
+    {
+      name: "Azure Resource Name",
+      data: {
+        name: "Resource Name",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "blank",
+        statements: [
+          {
+            matchExpression: "EXISTS DIMENSION['resource_identifier']",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /.*\\/(.*)$/$1/",
+          },
+        ],
+      },
+    },
+    {
+      name: "Azure Resource ID",
+      data: {
+        name: "Resource ID",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression:
+              "EXISTS DIMENSION['resource_identifier'] && DIMENSION['vendor'] == 'Azure'",
+            valueExpression:
+              "DIMENSION['resource_identifier'] REPLACE /^.*::(\\/.*)/$1/",
+          },
+          {
+            matchExpression: "DIMENSION['vendor'] != 'Azure'",
+            valueExpression: "DIMENSION['resource_identifier']",
+          },
+        ],
+      },
+    },
+  ],
+  UnderConstruction: [
+    {
+      name: "unit of measurement of use (Azure & GCP)",
+      data: {
+        name: "unit of measurement of use",
+        kind: "BUSINESS_DIMENSION",
+        defaultValue: "(not set)",
+        statements: [
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Database for' && DIMENSION['item_description'] CONTAINS 'vCore'",
+            valueExpression: "'1/vCore/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Cloud SQL for SQL Server: Regional - vCPU' || DIMENSION['item_description'] CONTAINS 'Cloud SQL for SQL Server: Zonal - vCPU'",
+            valueExpression: "'Seconds'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Data Share - Snapshot Execution vCore' || DIMENSION['item_description'] CONTAINS 'Azure Data Factory v2 Data Flow'",
+            valueExpression: "'1/vCore/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Premium Functions - Memory Duration'",
+            valueExpression: "'1/GB-s'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Functions - Standard Execution Time'",
+            valueExpression: "'1/s'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Logic Apps - Consumption Data Retention'",
+            valueExpression: "'1GB/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Data Retrieval'",
+            valueExpression: "'1/GB'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Network Watcher - Standard Connection Monitor Test'",
+            valueExpression: "'1k Tests'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Key Vault - Advanced Keys'",
+            valueExpression: "'1/Key/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Licensing'",
+            valueExpression: "'Seconds'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Rounding variance adjustment'",
+            valueExpression: "'Adjustment'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure OpenAI' && DIMENSION['item_description'] CONTAINS 'Tokens'",
+            valueExpression: "'1k Tokens'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'BigQuery Storage API'",
+            valueExpression: "'Read'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Network Intelligence Center'",
+            valueExpression: "'requests'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Microsoft Defender for Resource Manager' || DIMENSION['item_description'] CONTAINS 'Event Hubs - Basic Ingress Events'",
+            valueExpression: "'1M Events'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure DNS - Public Queries' || DIMENSION['item_description'] CONTAINS 'Azure DNS - Private Queries'",
+            valueExpression: "'1M Queries'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Operations' || DIMENSION['item_description'] CONTAINS 'Transactions' || DIMENSION['item_description'] CONTAINS 'Requests' || DIMENSION['item_description'] CONTAINS 'Translation - Translation - Transaction'",
+            valueExpression: "'10k'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Cognitive Services' || DIMENSION['item_description'] CONTAINS 'API Calls' || DIMENSION['item_description'] CONTAINS 'API Management - Consumption Calls'",
+            valueExpression: "'1k Calls'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Executions' || DIMENSION['item_description'] CONTAINS 'Function Execution'",
+            valueExpression: "'1M'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Active Logical Storage' || DIMENSION['item_description'] CONTAINS 'Long Term Logical Storage' || DIMENSION['item_description'] CONTAINS 'Cloud SQL for SQL Server' || DIMENSION['item_description'] CONTAINS 'Cloud SQL: Backups'",
+            valueExpression: "'Byte-seconds'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Analysis' || DIMENSION['item_description'] CONTAINS 'Log Storage cost'",
+            valueExpression: "'Bytes'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Network Watcher - Standard Network Logs Collected' || DIMENSION['item_description'] CONTAINS 'Network Watcher - Standard Traffic Analytics Processing' || DIMENSION['item_description'] CONTAINS 'Azure OpenAI - Assistants-File Search'",
+            valueExpression: "'1/GB'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Managed Disks - Snapshots' || DIMENSION['item_description'] CONTAINS 'Premium SSD Managed Disks' || DIMENSION['item_description'] CONTAINS 'Standard SSD Managed Disks' || DIMENSION['item_description'] CONTAINS 'Standard HDD Managed Disks'",
+            valueExpression: "'1GB/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Data Stored' || DIMENSION['item_description'] CONTAINS 'Storage' || DIMENSION['item_description'] CONTAINS 'File Storage'",
+            valueExpression: "'1GB/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Backup' || DIMENSION['item_description'] CONTAINS 'Protected Instance'",
+            valueExpression: "'1/Instance/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Network Inter Zone Data Transfer Out'",
+            valueExpression: "'Bytes'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Data Processed' || DIMENSION['item_description'] CONTAINS 'Data Transfer' || DIMENSION['item_description'] CONTAINS 'Bandwidth'",
+            valueExpression: "'1/GB'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Virtual WAN' || DIMENSION['item_description'] CONTAINS 'NAT Gateway' || DIMENSION['item_description'] CONTAINS 'Virtual Network Gateway' || DIMENSION['item_description'] CONTAINS 'VPN Gateway' || DIMENSION['item_description'] CONTAINS 'ExpressRoute Gateway' || DIMENSION['item_description'] CONTAINS 'Private Endpoint' || DIMENSION['item_description'] CONTAINS 'Private Link'",
+            valueExpression: "'1/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Front Door Service - Standard Default Request'",
+            valueExpression: "'1M Requests'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Fabric Capacity'",
+            valueExpression: "'1/CU-Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Databricks' && DIMENSION['item_description'] CONTAINS 'DBU'",
+            valueExpression: "'1/DBU/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Synapse Analytics Dedicated SQL Pool'",
+            valueExpression: "'1/DWU/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Specialized Compute Azure VMware Solution' || DIMENSION['item_description'] CONTAINS 'Power BI Embedded' || DIMENSION['item_description'] CONTAINS 'Azure Managed Grafana - Standard Node'",
+            valueExpression: "'1/Node/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Power BI Premium - Autoscale vCore'",
+            valueExpression: "'1/vCore/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Redis Cache' || DIMENSION['item_description'] CONTAINS 'Event Hubs - Basic Throughput Unit' || DIMENSION['item_description'] CONTAINS 'Event Grid - Standard Throughput Unit' || DIMENSION['item_description'] CONTAINS 'Azure Analysis Services' || DIMENSION['item_description'] CONTAINS 'Azure AI Search' || DIMENSION['item_description'] CONTAINS 'API Management - Standard Unit' || DIMENSION['item_description'] CONTAINS 'API Management - Developer Unit'",
+            valueExpression: "'1/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Virtual Machines' || DIMENSION['item_description'] CONTAINS 'vCPU' || DIMENSION['item_description'] CONTAINS 'App Service' || DIMENSION['item_description'] CONTAINS 'Container Apps' || DIMENSION['item_description'] CONTAINS 'Container Instances' || DIMENSION['item_description'] CONTAINS 'Azure Kubernetes Service' || DIMENSION['item_description'] CONTAINS 'SQL Database' || DIMENSION['item_description'] CONTAINS 'Azure Cosmos DB' || DIMENSION['item_description'] CONTAINS 'Process Automation' || DIMENSION['item_description'] CONTAINS 'Managed Disks' || DIMENSION['item_description'] CONTAINS 'LRS' || DIMENSION['item_description'] CONTAINS 'Load Balancer' || DIMENSION['item_description'] CONTAINS 'Application Gateway' || DIMENSION['item_description'] CONTAINS 'Azure Firewall' || DIMENSION['item_description'] CONTAINS 'Azure Bastion' || DIMENSION['item_description'] CONTAINS 'Azure Arc' || (DIMENSION['item_description'] CONTAINS 'Azure Database for' && DIMENSION['item_description'] CONTAINS 'Compute')",
+            valueExpression: "'1/Hour'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Container Registry'",
+            valueExpression: "'1/Day'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Microsoft Defender' && DIMENSION['item_description'] CONTAINS 'Node'",
+            valueExpression: "'1/Node/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Update Manager'",
+            valueExpression: "'1/Server/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Test Plans' || DIMENSION['item_description'] CONTAINS 'Azure DevOps' || DIMENSION['item_description'] CONTAINS 'Azure Repos and Boards' || DIMENSION['item_description'] CONTAINS 'Azure Managed Grafana - Standard User' || DIMENSION['item_description'] CONTAINS 'Users'",
+            valueExpression: "'1/User/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure DNS' && DIMENSION['item_description'] CONTAINS 'Zone'",
+            valueExpression: "'1/Zone/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Service Bus - Standard Base Unit' || DIMENSION['item_description'] CONTAINS 'QnA Maker - Standard Unit' || DIMENSION['item_description'] CONTAINS 'Notification Hubs - Free Unit' || DIMENSION['item_description'] CONTAINS 'Azure Pipelines - Microsoft-hosted CI/CD Concurrent Job' || DIMENSION['item_description'] CONTAINS 'Blob Features - Named Encryption Scopes'",
+            valueExpression: "'1/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Azure Front Door - Premium Base Fees' || DIMENSION['item_description'] CONTAINS 'Azure Front Door Service - Standard Default Ruleset' || DIMENSION['item_description'] CONTAINS 'Azure Front Door Service - Standard Included Routing Rules' || DIMENSION['item_description'] CONTAINS 'Azure Front Door Service - Standard Policy' || DIMENSION['item_description'] CONTAINS 'Azure Front Door Service - Standard Rule'",
+            valueExpression: "'1/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Static Web Apps - Standard' || DIMENSION['item_description'] CONTAINS 'Support'",
+            valueExpression: "'1/Month'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Virtual Network' || DIMENSION['item_description'] CONTAINS 'Log Analytics' || DIMENSION['item_description'] CONTAINS 'Sentinel' || DIMENSION['item_description'] CONTAINS 'Azure Monitor'",
+            valueExpression: "'1/GB'",
+          },
+          {
+            matchExpression:
+              "DIMENSION['item_description'] CONTAINS 'Logic Apps' || DIMENSION['item_description'] CONTAINS 'IP Addresses'",
+            valueExpression: "'1'",
+          },
+        ],
+      },
+    },
+  ],
+};
+
 const toolColumns = [
-    "DIMENSION['vendor_account_identifier']", "DIMENSION['vendor_account_name']", "DIMENSION['account_identifier']",
-    "DIMENSION['account_name']", "DIMENSION['architecture']", "DIMENSION['attached_instance_id']",
-    "DIMENSION['availability_zone']", "DIMENSION['compute_usage_type']", "DIMENSION['cost_adjustment_description']",
-    "DIMENSION['date']", "DIMENSION['day']", "DIMENSION['day_of_week']", "DIMENSION['days_since_launch']",
-    "DIMENSION['dns_name']", "DIMENSION['engine']", "DIMENSION['enhanced_service_name']", "DIMENSION['hour']",
-    "DIMENSION['image']", "DIMENSION['instance_category']", "DIMENSION['instance_family']",
-    "DIMENSION['instance_identifier']", "DIMENSION['instance_name']", "DIMENSION['instance_size']",
-    "DIMENSION['instance_state']", "DIMENSION['instance_type']", "DIMENSION['invoice_date']", "DIMENSION['invoice_id']",
-    "DIMENSION['ip_address']", "DIMENSION['item_description']", "DIMENSION['launch_date']", "DIMENSION['launch_day']",
-    "DIMENSION['launch_day_of_week']", "DIMENSION['launch_month']", "DIMENSION['launch_time']",
-    "DIMENSION['launch_week']", "DIMENSION['launch_year']", "DIMENSION['lease_type']", "DIMENSION['month']",
-    "DIMENSION['multi_az']", "DIMENSION['offering_class']", "DIMENSION['operating_system']", "DIMENSION['operation']",
-    "DIMENSION['private_dns_name']", "DIMENSION['private_ip_address']", "DIMENSION['product_name']",
-    "DIMENSION['region']", "DIMENSION['region_zone']", "DIMENSION['reservation_identifier']",
-    "DIMENSION['resource_identifier']", "DIMENSION['security_group_id']", "DIMENSION['security_group_name']",
-    "DIMENSION['seller']", "DIMENSION['service_account_id']", "DIMENSION['service_name']", "DIMENSION['storage_type']",
-    "DIMENSION['subnet']", "DIMENSION['tenancy']", "DIMENSION['transaction_type']", "DIMENSION['usage_family']",
-    "DIMENSION['usage_type']", "DIMENSION['vendor']", "DIMENSION['virtualization_type']", "DIMENSION['vpc_id']",
-    "DIMENSION['week']", "DIMENSION['year']", "DIMENSION['year_month']", "DIMENSION['year_week']"
+  "DIMENSION['vendor_account_identifier']",
+  "DIMENSION['vendor_account_name']",
+  "DIMENSION['account_identifier']",
+  "DIMENSION['account_name']",
+  "DIMENSION['architecture']",
+  "DIMENSION['attached_instance_id']",
+  "DIMENSION['availability_zone']",
+  "DIMENSION['compute_usage_type']",
+  "DIMENSION['cost_adjustment_description']",
+  "DIMENSION['date']",
+  "DIMENSION['day']",
+  "DIMENSION['day_of_week']",
+  "DIMENSION['days_since_launch']",
+  "DIMENSION['dns_name']",
+  "DIMENSION['engine']",
+  "DIMENSION['enhanced_service_name']",
+  "DIMENSION['hour']",
+  "DIMENSION['image']",
+  "DIMENSION['instance_category']",
+  "DIMENSION['instance_family']",
+  "DIMENSION['instance_identifier']",
+  "DIMENSION['instance_name']",
+  "DIMENSION['instance_size']",
+  "DIMENSION['instance_state']",
+  "DIMENSION['instance_type']",
+  "DIMENSION['invoice_date']",
+  "DIMENSION['invoice_id']",
+  "DIMENSION['ip_address']",
+  "DIMENSION['item_description']",
+  "DIMENSION['launch_date']",
+  "DIMENSION['launch_day']",
+  "DIMENSION['launch_day_of_week']",
+  "DIMENSION['launch_month']",
+  "DIMENSION['launch_time']",
+  "DIMENSION['launch_week']",
+  "DIMENSION['launch_year']",
+  "DIMENSION['lease_type']",
+  "DIMENSION['month']",
+  "DIMENSION['multi_az']",
+  "DIMENSION['offering_class']",
+  "DIMENSION['operating_system']",
+  "DIMENSION['operation']",
+  "DIMENSION['private_dns_name']",
+  "DIMENSION['private_ip_address']",
+  "DIMENSION['product_name']",
+  "DIMENSION['region']",
+  "DIMENSION['region_zone']",
+  "DIMENSION['reservation_identifier']",
+  "DIMENSION['resource_identifier']",
+  "DIMENSION['security_group_id']",
+  "DIMENSION['security_group_name']",
+  "DIMENSION['seller']",
+  "DIMENSION['service_account_id']",
+  "DIMENSION['service_name']",
+  "DIMENSION['storage_type']",
+  "DIMENSION['subnet']",
+  "DIMENSION['tenancy']",
+  "DIMENSION['transaction_type']",
+  "DIMENSION['usage_family']",
+  "DIMENSION['usage_type']",
+  "DIMENSION['vendor']",
+  "DIMENSION['virtualization_type']",
+  "DIMENSION['vpc_id']",
+  "DIMENSION['week']",
+  "DIMENSION['year']",
+  "DIMENSION['year_month']",
+  "DIMENSION['year_week']",
 ];
 
-// Upload CSV/XLSX
-document.getElementById('dataFile').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+document.getElementById("dataFile").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
 
-    const reader = new FileReader();
-    const filename = file.name.toLowerCase();
+  const reader = new FileReader();
+  const filename = file.name.toLowerCase();
 
-    if (filename.endsWith('.csv')) {
-        reader.onload = function(evt) {
-            const csvText = evt.target.result;
-            const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-            excelData = parsed.data;
-            columns = Object.keys(excelData[0] || {});
-            initFase2();
-        };
-        reader.readAsText(file);
-    } else {
-        reader.onload = function(evt) {
-            const data = new Uint8Array(evt.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            excelData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-            columns = Object.keys(excelData[0] || {});
-            initFase2();
-        };
-        reader.readAsArrayBuffer(file);
-    }
+  if (filename.endsWith(".csv")) {
+    reader.onload = function (evt) {
+      const csvText = evt.target.result;
+      const parsed = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+      });
+      excelData = parsed.data;
+      columns = Object.keys(excelData[0] || {});
+      initFase2();
+    };
+    reader.readAsText(file);
+  } else {
+    reader.onload = function (evt) {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      excelData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      columns = Object.keys(excelData[0] || {});
+      initFase2();
+    };
+    reader.readAsArrayBuffer(file);
+  }
 });
 
 function initFase2() {
-    const valueSelect2 = document.getElementById('valueCol2');
-    valueSelect2.innerHTML = '';
-    columns.forEach(c => {
-        valueSelect2.innerHTML += `<option value="${c}">${c}</option>`;
-    });
-    document.getElementById('configSection2').style.display = 'block';
-    document.getElementById('statementsContainer').innerHTML = '';
-    // Adiciona o primeiro statement automaticamente
-    addStatement();
+  const valueSelect2 = document.getElementById("valueCol2");
+  valueSelect2.innerHTML = "";
+
+  columns.forEach((c) => {
+    valueSelect2.innerHTML += `<option value="${c}">${c}</option>`;
+  });
+
+  valueSelect2.innerHTML += `<option value="_CUSTOM">Custom...</option>`;
+
+  document.getElementById("configSection2").style.display = "block";
+  document.getElementById("statementsContainer").innerHTML = "";
+  addStatement();
 }
 
-// ======================================================================
-// Funções de gerenciamento dos Statements, Groups e Conditions
-// ======================================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const statementsContainer = document.getElementById("statementsContainer");
+  new Sortable(statementsContainer, {
+    animation: 150,
+    handle: ".handle",
+  });
+
+  const valueSelect2 = document.getElementById("valueCol2");
+  const customInput = document.getElementById("customValueExpression");
+
+  valueSelect2.addEventListener("change", () => {
+    customInput.style.display =
+      valueSelect2.value === "_CUSTOM" ? "inline-block" : "none";
+  });
+
+  const providerSelect = document.getElementById("providerSelect");
+  Object.keys(snippetsByProvider).forEach((provider) => {
+    const option = document.createElement("option");
+    option.value = provider;
+    option.textContent = provider;
+    providerSelect.appendChild(option);
+  });
+
+  providerSelect.addEventListener("change", (e) => {
+    const selectedProvider = e.target.value;
+    const snippetSelect = document.getElementById("snippetSelect");
+
+    snippetSelect.innerHTML =
+      '<option value="">Select a snippet...</option>';
+
+    if (selectedProvider === "") {
+      document.getElementById("output").textContent = "";
+      document.getElementById("downloadBtn").style.display = "none";
+      document.getElementById("copyBtn").style.display = "none";
+      return;
+    }
+
+    const providerSnippets = snippetsByProvider[selectedProvider] || [];
+    providerSnippets.forEach((snippet) => {
+      const option = document.createElement("option");
+      option.value = snippet.name;
+      option.textContent = snippet.name;
+      snippetSelect.appendChild(option);
+    });
+
+    snippetSelect.value = "";
+    document.getElementById("output").textContent = "";
+    document.getElementById("downloadBtn").style.display = "none";
+    document.getElementById("copyBtn").style.display = "none";
+  });
+
+  const snippetSelect = document.getElementById("snippetSelect");
+  snippetSelect.addEventListener("change", (e) => {
+    const selectedName = e.target.value;
+    if (selectedName === "") {
+      document.getElementById("output").textContent = "";
+      document.getElementById("downloadBtn").style.display = "none";
+      document.getElementById("copyBtn").style.display = "none";
+      return;
+    }
+
+    const currentProvider = document.getElementById("providerSelect").value;
+    const providerSnippets = snippetsByProvider[currentProvider] || [];
+    const selectedSnippet = providerSnippets.find(
+      (s) => s.name === selectedName
+    );
+
+    if (selectedSnippet) {
+      loadSnippet(selectedSnippet, currentProvider); 
+    }
+  });
+});
+
+function loadSnippet(snippet, provider = "") {
+  const outputEl = document.getElementById("output");
+  outputEl.textContent = "";
+  document.getElementById("downloadBtn").style.display = "none";
+  document.getElementById("copyBtn").style.display = "none";
+
+  const downloadName = provider ? `${provider}_${snippet.name}` : snippet.name;
+
+  showJSON(snippet.data, downloadName);
+}
 
 function addStatement() {
-    const container = document.getElementById('statementsContainer');
-    
-    // Verifica se já existe um statement
-    if (container.children.length > 0) {
-        return; // Não faz nada se já houver um
-    }
-    
-    const statementDiv = document.createElement('div');
-    statementDiv.classList.add('card', 'statement-card');
-    
-    // Nome do Statement
-    const statementCount = container.children.length + 1;
-    const statementName = `Statement ${statementCount}`;
-    
-    statementDiv.innerHTML = `
+  const container = document.getElementById("statementsContainer");
+
+  if (container.children.length > 0) {
+    return; 
+  }
+
+  const statementDiv = document.createElement("div");
+  statementDiv.classList.add("card", "statement-card");
+
+  const statementCount = container.children.length + 1;
+  const statementName = `Statement ${statementCount}`;
+
+  statementDiv.innerHTML = `
         <div class="card-header handle">
             <input type="text" class="card-title-input" value="${statementName}" style="display:none;">
         </div>
@@ -95,27 +1375,27 @@ function addStatement() {
             <i class="fas fa-plus"></i> Add Operator (AND)
         </button>
     `;
-    container.appendChild(statementDiv);
-    addGroup(statementDiv.querySelector('.groups-container'));
-
+  container.appendChild(statementDiv);
+  addGroup(statementDiv.querySelector(".groups-container"));
 }
 
 function removeStatement(iconElement) {
-    const statementCard = iconElement.closest('.statement-card');
-    statementCard.remove();
-    
-    // Se não houver mais statements, reativa o botão
-    if (document.getElementById('statementsContainer').children.length === 0) {
-        document.querySelector('.header-actions .btn-primary').disabled = false;
-    }
+  const statementCard = iconElement.closest(".statement-card");
+  statementCard.remove();
+
+  if (document.getElementById("statementsContainer").children.length === 0) {
+    document.querySelector(".header-actions .btn-primary").disabled = false;
+  }
 }
 
 function addGroup(buttonElement) {
-    const groupsContainer = buttonElement.closest('.statement-card').querySelector('.groups-container');
-    const groupDiv = document.createElement('div');
-    groupDiv.classList.add('group-container');
-    
-    groupDiv.innerHTML = `
+  const groupsContainer = buttonElement
+    .closest(".statement-card")
+    .querySelector(".groups-container");
+  const groupDiv = document.createElement("div");
+  groupDiv.classList.add("group-container");
+
+  groupDiv.innerHTML = `
         <div class="group-header">
             <label>Statement</label>
             <i class="fas fa-trash-alt" onclick="removeGroup(this)"></i>
@@ -125,247 +1405,354 @@ function addGroup(buttonElement) {
             <i class="fas fa-plus"></i> Add Operator (OR)
         </button>
     `;
-    groupsContainer.appendChild(groupDiv);
-    addCondition(groupDiv.querySelector('.conditions-container'));
+  groupsContainer.appendChild(groupDiv);
+  addCondition(groupDiv.querySelector(".conditions-container"));
 }
 
 function removeGroup(iconElement) {
-    iconElement.closest('.group-container').remove();
+  iconElement.closest(".group-container").remove();
 }
 
 function addCondition(buttonElement) {
-    const conditionsContainer = buttonElement.closest('.group-container').querySelector('.conditions-container');
-    const conditionDiv = document.createElement('div');
-    conditionDiv.classList.add('condition');
+  const conditionsContainer = buttonElement
+    .closest(".group-container")
+    .querySelector(".conditions-container");
+  const conditionDiv = document.createElement("div");
+  conditionDiv.classList.add("condition");
 
-    conditionDiv.addEventListener('click', function() {
-        selectCondition(this);
-    });
+  conditionDiv.addEventListener("click", function () {
+    selectCondition(this);
+  });
 
-    const toolColSelect = createToolSelect();
-    const customInput = document.createElement('input');
-    customInput.type = 'text';
-    customInput.placeholder = "Ex: Resource group";
-    customInput.style.display = 'none';
-    toolColSelect.addEventListener('change', () => {
-        customInput.style.display = toolColSelect.value.endsWith('_CUSTOM') ? 'inline-block' : 'none';
-    });
+  const toolColSelect = createToolSelect();
+  const customInput = document.createElement("input");
+  customInput.type = "text";
+  customInput.placeholder = "Ex: Resource group";
+  customInput.style.display = "none";
+  toolColSelect.addEventListener("change", () => {
+    customInput.style.display = toolColSelect.value.endsWith("_CUSTOM")
+      ? "inline-block"
+      : "none";
+  });
 
-    const opSelect = createOperatorSelect();
-    const fileColSelect = createFileSelect();
-    
-    const removeBtn = document.createElement('i');
-    removeBtn.classList.add('fas', 'fa-trash-alt');
-    removeBtn.style.cursor = 'pointer';
-    removeBtn.style.marginLeft = '10px';
-    removeBtn.onclick = () => conditionDiv.remove();
+  const opSelect = createOperatorSelect();
+  const fileColSelect = createFileSelect();
 
-    conditionDiv.appendChild(toolColSelect);
-    conditionDiv.appendChild(customInput);
-    conditionDiv.appendChild(opSelect);
-    conditionDiv.appendChild(fileColSelect);
-    conditionDiv.appendChild(removeBtn);
+  const removeBtn = document.createElement("i");
+  removeBtn.classList.add("fas", "fa-trash-alt");
+  removeBtn.style.cursor = "pointer";
+  removeBtn.style.marginLeft = "10px";
+  removeBtn.onclick = () => conditionDiv.remove();
 
-    conditionsContainer.appendChild(conditionDiv);
+  conditionDiv.appendChild(toolColSelect);
+  conditionDiv.appendChild(customInput);
+  conditionDiv.appendChild(opSelect);
+  conditionDiv.appendChild(fileColSelect);
+  conditionDiv.appendChild(removeBtn);
+
+  conditionsContainer.appendChild(conditionDiv);
 }
 
-// Funções para criar os selects dinamicamente
 function createToolSelect() {
-    const toolColSelect = document.createElement('select');
-    toolColSelect.className = 'toolColSelect';
-    toolColumns.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.text = c;
-        toolColSelect.appendChild(opt);
-    });
-    const customOptions = ["ACCOUNT_GROUP", "TAG", "BUSINESS_DIMENSION"];
-    customOptions.forEach(optName => {
-        const opt = document.createElement('option');
-        opt.value = optName + '_CUSTOM';
-        opt.text = optName + "[...]";
-        toolColSelect.appendChild(opt);
-    });
-    return toolColSelect;
+  const toolColSelect = document.createElement("select");
+  toolColSelect.className = "toolColSelect";
+  toolColumns.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.text = c;
+    toolColSelect.appendChild(opt);
+  });
+  const customOptions = ["ACCOUNT_GROUP", "TAG", "BUSINESS_DIMENSION"];
+  customOptions.forEach((optName) => {
+    const opt = document.createElement("option");
+    opt.value = optName + "_CUSTOM";
+    opt.text = optName + "[...]";
+    toolColSelect.appendChild(opt);
+  });
+  return toolColSelect;
 }
 
 function createOperatorSelect() {
-    const opSelect = document.createElement('select');
-    opSelect.className = 'opSelect';
-    ['==', '!=', '!exists', 'exists', 'contains', '!contains', 'STARTS_WITH', '!STARTS_WITH', 'ENDS_WITH','!ENDS_WITH', '>', '<', '>=', '<='].forEach(op => {
-        const opt = document.createElement('option');
-        opt.value = op;
-        opt.text = op;
-        opSelect.appendChild(opt);
-    });
-    return opSelect;
+  const opSelect = document.createElement("select");
+  opSelect.className = "opSelect";
+  [
+    "==",
+    "!=",
+    "!exists",
+    "exists",
+    "contains",
+    "!contains",
+    "STARTS_WITH",
+    "!STARTS_WITH",
+    "ENDS_WITH",
+    "!ENDS_WITH",
+    ">",
+    "<",
+    ">=",
+    "<=",
+    "IN",
+  ].forEach((op) => {
+    const opt = document.createElement("option");
+    opt.value = op;
+    opt.text = op;
+    opSelect.appendChild(opt);
+  });
+  return opSelect;
 }
 
 function createFileSelect() {
-    const fileColSelect = document.createElement('select');
-    fileColSelect.className = 'fileColSelect';
-    columns.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.text = c;
-        fileColSelect.appendChild(opt);
-    });
-    return fileColSelect;
+  const fileColSelect = document.createElement("select");
+  fileColSelect.className = "fileColSelect";
+  columns.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.text = c;
+    fileColSelect.appendChild(opt);
+  });
+  return fileColSelect;
 }
-
-// ======================================================================
-// Geração do JSON
-// ======================================================================
 
 function generateJSON2() {
-    const jsonNameInput = document.getElementById('jsonName');
-    const jsonDefaultInput = document.getElementById('jsonDefault');
+  const outputEl = document.getElementById("output");
+  outputEl.textContent = "";
+  document.getElementById("downloadBtn").style.display = "none";
+  document.getElementById("copyBtn").style.display = "none";
 
-    if (jsonNameInput.value.trim() === '') {
-        alert('O campo "Name" é obrigatório.');
-        jsonNameInput.focus();
-        return;
-    }
+  const jsonNameInput = document.getElementById("jsonName");
+  const jsonDefaultInput = document.getElementById("jsonDefault");
 
-    if (jsonDefaultInput.value.trim() === '') {
-        alert('O campo "Valor padrão" é obrigatório.');
-        jsonDefaultInput.focus();
-        return;
-    }
-    
-    // Pega o único statement na tela
-    const statementCard = document.querySelector('.statement-card');
-    if (!statementCard) {
-        alert('Nenhum statement encontrado para gerar o JSON.');
-        return;
-    }
-    const groups = Array.from(statementCard.querySelectorAll('.group-container')).map(groupDiv => {
-        const conditions = Array.from(groupDiv.querySelectorAll('.condition')).map(conditionDiv => {
-            const toolColSelect = conditionDiv.querySelector('.toolColSelect');
-            const customInput = conditionDiv.querySelector('input[type="text"]');
-            const toolCol = toolColSelect.value.endsWith('_CUSTOM') ? `${toolColSelect.value.replace('_CUSTOM', '')}['${customInput.value}']` : toolColSelect.value;
-            const fileCol = conditionDiv.querySelector('.fileColSelect').value;
-            const operator = conditionDiv.querySelector('.opSelect').value;
-            
-            return { toolCol, fileCol, operator };
-        });
-        return { conditions };
+  if (jsonNameInput.value.trim() === "") {
+    alert('O campo "Name" é obrigatório.');
+    jsonNameInput.focus();
+    return; 
+  }
+
+  if (jsonDefaultInput.value.trim() === "") {
+    alert('O campo "Valor padrão" é obrigatório.');
+    jsonDefaultInput.focus();
+    return; 
+  }
+
+  const statementCard = document.querySelector(".statement-card");
+  if (!statementCard) {
+    alert("Nenhum statement encontrado para gerar o JSON.");
+    return; 
+  }
+
+  const groups = Array.from(
+    statementCard.querySelectorAll(".group-container")
+  ).map((groupDiv) => {
+    const conditions = Array.from(groupDiv.querySelectorAll(".condition")).map(
+      (conditionDiv) => {
+        const toolColSelect = conditionDiv.querySelector(".toolColSelect");
+        const customInput = conditionDiv.querySelector('input[type="text"]');
+        const toolCol = toolColSelect.value.endsWith("_CUSTOM")
+          ? `${toolColSelect.value.replace("_CUSTOM", "")}['${
+              customInput.value
+            }']`
+          : toolColSelect.value;
+        const fileCol = conditionDiv.querySelector(".fileColSelect").value;
+        const operator = conditionDiv.querySelector(".opSelect").value;
+
+        return { toolCol, fileCol, operator };
+      }
+    );
+    return { conditions };
+  });
+
+  const valueCol = document.getElementById("valueCol2").value;
+  const customValueExpr = document
+    .getElementById("customValueExpression")
+    .value.trim();
+  const jsonName = document.getElementById("jsonName").value || "Unnamed";
+  const defaultValue =
+    document.getElementById("jsonDefault").value || "(not set)";
+
+  const jsonStatements = excelData.map((row) => {
+    let matchExpression = "";
+
+    groups.forEach((group, groupIndex) => {
+      let groupExpression = group.conditions
+        .map((cond) => {
+          let expr = "";
+          switch (cond.operator) {
+            case "==":
+              expr = `${cond.toolCol} == '${row[cond.fileCol]}'`;
+              break;
+            case "!=":
+              expr = `${cond.toolCol} != '${row[cond.fileCol]}'`;
+              break;
+            case "!exists":
+              expr = `${cond.toolCol} !exists`;
+              break;
+            case "exists":
+              expr = `${cond.toolCol} exists`;
+              break;
+            case "contains":
+              expr = `'${row[cond.fileCol]}' in ${cond.toolCol}`;
+              break;
+            case "!contains":
+              expr = `'${row[cond.fileCol]}' not in ${cond.toolCol}`;
+              break;
+            case "STARTS_WITH":
+              expr = `STARTS_WITH(${cond.toolCol}, '${row[cond.fileCol]}')`;
+              break;
+            case "!STARTS_WITH":
+              expr = `!STARTS_WITH(${cond.toolCol}, '${row[cond.fileCol]}')`;
+              break;
+            case "ENDS_WITH":
+              expr = `ENDS_WITH(${cond.toolCol}, '${row[cond.fileCol]}')`;
+              break;
+            case "!ENDS_WITH":
+              expr = `!ENDS_WITH(${cond.toolCol}, '${row[cond.fileCol]}')`;
+              break;
+            case ">":
+              expr = `${cond.toolCol} > ${row[cond.fileCol]}`;
+              break;
+            case "<":
+              expr = `${cond.toolCol} < ${row[cond.fileCol]}`;
+              break;
+            case ">=":
+              expr = `${cond.toolCol} >= ${row[cond.fileCol]}`;
+              break;
+            case "<=":
+              expr = `${cond.toolCol} <= ${row[cond.fileCol]}`;
+              break;
+            case "IN":
+              expr = `${cond.toolCol} IN ${row[cond.fileCol]}`;
+              break;
+          }
+          return expr;
+        })
+        .join(" || ");
+
+      if (groups.length > 1 && groupIndex > 0) {
+        matchExpression += " && ";
+      }
+
+      if (groups.length > 1) {
+        matchExpression += `(${groupExpression})`;
+      } else {
+        matchExpression += groupExpression;
+      }
     });
 
-    const valueCol = document.getElementById('valueCol2').value;
-    const jsonName = document.getElementById('jsonName').value || "Unnamed";
-    const defaultValue = document.getElementById('jsonDefault').value || "(not set)";
+    const valueExpression =
+      valueCol === "_CUSTOM" ? `'${customValueExpr}'` : `'${row[valueCol]}'`;
 
-    const jsonStatements = excelData.map(row => {
-        let matchExpression = '';
-        
-        groups.forEach((group, groupIndex) => {
-            let groupExpression = group.conditions.map(cond => {
-                let expr = '';
-                switch (cond.operator) {
-                    case '==': expr = `${cond.toolCol} == '${row[cond.fileCol]}'`; break;
-                    case '!=': expr = `${cond.toolCol} != '${row[cond.fileCol]}'`; break;
-                    case '!exists': expr = `${cond.toolCol} !exists`; break;
-                    case 'exists': expr = `${cond.toolCol} exists`; break;
-                    case 'contains': expr = `'${row[cond.fileCol]}' in ${cond.toolCol}`; break;
-                    case '!contains': expr = `'${row[cond.fileCol]}' not in ${cond.toolCol}`; break;
-                    case 'STARTS_WITH': expr = `STARTS_WITH(${cond.toolCol}, '${row[cond.fileCol]}')`; break;
-                    case '!STARTS_WITH': expr = `!STARTS_WITH(${cond.toolCol}, '${row[cond.fileCol]}')`; break;
-                    case 'ENDS_WITH': expr = `ENDS_WITH(${cond.toolCol}, '${row[cond.fileCol]}')`; break;
-                    case '!ENDS_WITH': expr = `!ENDS_WITH(${cond.toolCol}, '${row[cond.fileCol]}')`; break;
-                    case '>': expr = `${cond.toolCol} > ${row[cond.fileCol]}`; break;
-                    case '<': expr = `${cond.toolCol} < ${row[cond.fileCol]}`; break;
-                    case '>=': expr = `${cond.toolCol} >= ${row[cond.fileCol]}`; break;
-                    case '<=': expr = `${cond.toolCol} <= ${row[cond.fileCol]}`; break;
-                }
-                return expr;
-            }).join(' || ');
-            
-            if (groups.length > 1 && groupIndex > 0) {
-                matchExpression += ' && ';
-            }
-            
-            if (groups.length > 1) {
-                matchExpression += `(${groupExpression})`;
-            } else {
-                matchExpression += groupExpression;
-            }
-        });
-
-        return {
-            matchExpression: matchExpression,
-            valueExpression: `'${row[valueCol]}'`
-        };
-    });
-
-    const jsonData = {
-        name: jsonName,
-        kind: "BUSINESS_DIMENSION",
-        defaultValue: defaultValue,
-        statements: jsonStatements
+    return {
+      matchExpression: matchExpression,
+      valueExpression: valueExpression,
     };
+  });
 
-    showJSON(jsonData);
+  const jsonData = {
+    name: jsonName,
+    kind: "BUSINESS_DIMENSION",
+    defaultValue: defaultValue,
+    statements: jsonStatements,
+  };
+
+  showJSON(jsonData, jsonName);
 }
 
-// ======================================================================
-// Funções Auxiliares
-// ======================================================================
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        const copyBtn = document.getElementById("copyBtn");
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = "Copied!";
+        copyBtn.classList.add("copied");
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+          copyBtn.classList.remove("copied");
+        }, 2000);
+      })
+      .catch((err) => {
+        console.error("Erro ao copiar: ", err);
+        alert(
+          "Erro ao copiar para clipboard. Tente selecionar e copiar manualmente."
+        );
+      });
+  } else {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+    alert("Copiado para clipboard!");
+  }
+}
+
+function showJSON(jsonInput, downloadName = "output") {
+  const outputEl = document.getElementById("output");
+  let jsonString;
+  let jsonData;
+
+  if (typeof jsonInput === "string") {
+    jsonString = jsonInput;
+    jsonData = JSON.parse(jsonInput); 
+  } else {
+    jsonData = jsonInput;
+    jsonString = JSON.stringify(jsonData, null, 2);
+  }
+  outputEl.textContent = jsonString;
+
+  const downloadBtn = document.getElementById("downloadBtn");
+  const blob = new Blob([jsonString], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  downloadBtn.style.display = "inline-block";
+  downloadBtn.onclick = () => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${downloadName}.json`; 
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url); 
+  };
+
+  const copyBtn = document.getElementById("copyBtn");
+  copyBtn.style.display = "inline-block";
+  copyBtn.onclick = () => {
+    copyToClipboard(jsonString);
+  };
+}
 
 function resetPage() {
-    document.getElementById('dataFile').value = '';
-    document.getElementById('configSection2').style.display = 'none';
-    document.getElementById('statementsContainer').innerHTML = '';
-    document.getElementById('valueCol2').innerHTML = '';
-    document.getElementById('output').textContent = '';
-    excelData = [];
-    columns = [];
-    document.getElementById('downloadBtn').style.display = 'none';
+  document.getElementById("dataFile").value = "";
+  document.getElementById("configSection2").style.display = "none";
+  document.getElementById("statementsContainer").innerHTML = "";
+  document.getElementById("valueCol2").innerHTML = "";
+  document.getElementById("output").textContent = "";
+  document.getElementById("providerSelect").value = ""; 
+  document.getElementById("snippetSelect").value = ""; 
+  excelData = [];
+  columns = [];
+  document.getElementById("downloadBtn").style.display = "none";
+  document.getElementById("copyBtn").style.display = "none";
 }
 
 function updateStatementName(element) {
-    if (!element.innerText.trim()) {
-        element.innerText = 'Statement';
-    }
-}
-
-// Exibir JSON e baixar
-function showJSON(jsonData) {
-    const outputEl = document.getElementById('output');
-    outputEl.textContent = JSON.stringify(jsonData, null, 2);
-
-    const downloadBtn = document.getElementById('downloadBtn');
-    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-
-    downloadBtn.style.display = 'inline-block';
-    downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${document.getElementById('jsonName').value || 'output'}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    };
+  if (!element.innerText.trim()) {
+    element.innerText = "Statement";
+  }
 }
 
 function selectCondition(element) {
-    // Remove a classe 'selected' de todos os elementos 'condition'
-    const conditions = document.querySelectorAll('.condition');
-    conditions.forEach(c => c.classList.remove('selected'));
+  const conditions = document.querySelectorAll(".condition");
+  conditions.forEach((c) => c.classList.remove("selected"));
 
-    // Adiciona a classe 'selected' ao elemento clicado
-    element.classList.add('selected');
+  element.classList.add("selected");
 }
 
-// Inicializar a funcionalidade de reordenação com Sortable.js
-document.addEventListener('DOMContentLoaded', () => {
-    const statementsContainer = document.getElementById('statementsContainer');
-    new Sortable(statementsContainer, {
-        animation: 150,
-        handle: '.handle', // Apenas a área de cabeçalho do card pode ser usada para arrastar
-    });
+document.addEventListener("DOMContentLoaded", () => {
+  const statementsContainer = document.getElementById("statementsContainer");
+  new Sortable(statementsContainer, {
+    animation: 150,
+    handle: ".handle", 
+  });
 });
-
-
-
