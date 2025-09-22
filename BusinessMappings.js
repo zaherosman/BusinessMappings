@@ -97,9 +97,7 @@ function addStatement() {
     `;
     container.appendChild(statementDiv);
     addGroup(statementDiv.querySelector('.groups-container'));
-    
-    // Desativa o botão após adicionar o primeiro statement
-    document.querySelector('.header-actions .btn-primary').disabled = true;
+
 }
 
 function removeStatement(iconElement) {
@@ -110,9 +108,6 @@ function removeStatement(iconElement) {
     if (document.getElementById('statementsContainer').children.length === 0) {
         document.querySelector('.header-actions .btn-primary').disabled = false;
     }
-    
-    // Chama a função para garantir que o valueExpression seja atualizado
-    updateValueExpressionColumns(); 
 }
 
 function addGroup(buttonElement) {
@@ -244,10 +239,7 @@ function generateJSON2() {
         alert('Nenhum statement encontrado para gerar o JSON.');
         return;
     }
-
-    const statementName = statementCard.querySelector('.card-title').innerText;
     const groups = Array.from(statementCard.querySelectorAll('.group-container')).map(groupDiv => {
-        const isNegated = groupDiv.querySelector('.negate-group-checkbox').checked;
         const conditions = Array.from(groupDiv.querySelectorAll('.condition')).map(conditionDiv => {
             const toolColSelect = conditionDiv.querySelector('.toolColSelect');
             const customInput = conditionDiv.querySelector('input[type="text"]');
@@ -257,7 +249,7 @@ function generateJSON2() {
             
             return { toolCol, fileCol, operator };
         });
-        return { conditions, isNegated };
+        return { conditions };
     });
 
     const valueCol = document.getElementById('valueCol2').value;
@@ -288,16 +280,12 @@ function generateJSON2() {
                 }
                 return expr;
             }).join(' || ');
-
-            if (group.isNegated) {
-                groupExpression = `!(${groupExpression})`;
-            }
             
             if (groups.length > 1 && groupIndex > 0) {
                 matchExpression += ' && ';
             }
             
-            if (groups.length > 1 || group.isNegated) {
+            if (groups.length > 1) {
                 matchExpression += `(${groupExpression})`;
             } else {
                 matchExpression += groupExpression;
